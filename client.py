@@ -21,6 +21,8 @@ def upload_single_file(file_name):
     print(str_bytes)
     print(f"Sending {len(str_bytes)} of data.")
     send_sock.send(str_bytes) 
+    details = send_sock.recv(1024)
+    print("I got ", details.decode())
     send_sock.close()
 
 def upload_file(file_names): 
