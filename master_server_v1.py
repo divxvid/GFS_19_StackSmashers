@@ -11,7 +11,8 @@ MESSAGE_SIZE = 1024
 #read from meta data of master and prepare the string to be sent to client
 def uploadChunks(data_from_client) :
     print(f"upload {data_from_client[1]} {data_from_client[2]}")
-    list_ip_port = []
+    list_ip_port = [["127.0.0.1", "33333"], ["127.0.0.1", "33334"]]
+    '''
     list1 = ['127.0.0.1','50001']
     list2 = ['127.0.0.2','50002']
     list3 = ['127.0.0.3','50003']
@@ -20,6 +21,7 @@ def uploadChunks(data_from_client) :
     list_ip_port.append(list2)
     list_ip_port.append(list3)
     list_ip_port.append(list4)
+    '''
     file_size = int(data_from_client[2])
     no_of_chunk_servers = len(list_ip_port) 
     no_of_chunks = math.ceil(file_size/CHUNK_SIZE)
