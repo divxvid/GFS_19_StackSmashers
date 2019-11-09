@@ -36,8 +36,8 @@ def uploadChunks(data_from_client) :
     for i in range(0,no_of_chunk_servers) :
         str1 = ','.join(final_list_chunks[i])
         str2 = ':'.join([str1, list_ip_port[i][0], list_ip_port[i][1]])
-        str3 = '|'.join([str3, str2])
-    str3 = f"{str3}|"
+        str3 = '|'.join([str3, str2, ""])
+    #str3 = f"{str3}|"
     str_to_send = str3 + '\0'*(MESSAGE_SIZE - len(str3))
     return str_to_send
 
@@ -71,7 +71,7 @@ def clientReceive() :
         data_from_client = packet_from_client.split("|")
         thread1 = threading.Thread(target = accceptRequest, args = (data_from_client, client_sock, ))
         thread1.start()
-        thread1.join()
+        #thread1.join()
     master_sock.close()
 
 
