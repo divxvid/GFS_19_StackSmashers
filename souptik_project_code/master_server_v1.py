@@ -58,7 +58,8 @@ def accceptRequest(data_from_client, send_sock) :
 
 def clientReceive() :
     fp1 = open("master_ip.conf", "r")
-    read_data = fp1.readline()
+    read_data = fp1.readline().strip()
+    fp1.close()
     master_ip, master_port = read_data.split(" ")
     print(f"{master_ip} {master_port}")
     master_sock = socket()
