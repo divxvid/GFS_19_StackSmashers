@@ -8,7 +8,7 @@ import math
 CHUNK_SIZE = 524288
 MESSAGE_SIZE = 1024
 
-#read from meta data of master and send the string to client
+#read from meta data of master and prepare the string to be sent to client
 def uploadChunks(data_from_client) :
     print(f"upload {data_from_client[1]} {data_from_client[2]}")
     list_ip_port = []
@@ -31,7 +31,6 @@ def uploadChunks(data_from_client) :
             temp_list1.append(str(i+(counter*no_of_chunk_servers)))
             counter = counter + 1
         final_list_chunks.append(temp_list1)
-    print(final_list_chunks)
     str3 = 'E'
     str_to_send = ""
     for i in range(0,no_of_chunk_servers) :
@@ -40,16 +39,20 @@ def uploadChunks(data_from_client) :
         str3 = '|'.join([str3, str2])
     str3 = f"{str3}|"
     str_to_send = str3 + '\0'*(MESSAGE_SIZE - len(str3))
-    print(len(str_to_send))
-    str_bytes = str.encode(str_to_send)
+    return str_to_send
 
 def downloadChunks(data_from_client) :
     print(f"download {data_from_client[1]} {data_from_client[2]}")
 
-#accept request from client and call function accordingly
-def accceptRequest(data_from_client) :
+#accept request from client and call function accordingly and send reply to client
+def accceptRequest(data_from_client, send_sock) :
     if data_from_client[0] == 'U' :
-        uploadChunks(data_from_client)
+        str_bytes = ""
+        temp_str = ""
+        temp_str = uploadChunks(data_from_client)
+        str_bytes = str.encode(temp_str)
+        send_sock.send(str_bytes)
+        send_sock.close()
     elif data_from_client[0] == 'D' :
         downloadChunks(data_from_client)
 
@@ -62,17 +65,13 @@ def clientReceive() :
     master_sock.bind(("", int(master_port)))
     master_sock.listen(10)
     while True :
-        # client_sock, client_addr = master_sock.accept()
-        # packet = client_sock.recv(1024)
-        # packet_from_client = packet.decode()
-        # print(packet_from_client)
-        packet_from_client=input()
+        client_sock, client_addr = master_sock.accept()
+        packet = client_sock.recv(1024)
+        packet_from_client = packet.decode()
         data_from_client = packet_from_client.split("|")
-        # print(data_from_client)
-        thread1 = threading.Thread(target = accceptRequest, args = (data_from_client,))
+        thread1 = threading.Thread(target = accceptRequest, args = (data_from_client, client_sock, ))
         thread1.start()
         thread1.join()
-        # client_sock.close()
     master_sock.close()
 
 
