@@ -5,6 +5,7 @@ from socket import socket
 import threading
 import math
 import json
+import time
 
 CHUNK_SIZE = 524288
 MESSAGE_SIZE = 1024
@@ -14,6 +15,48 @@ dict_all_chunk_info={}
 dict_size_info={}
 dict_status_bit={}
 dict_chunkserver_ids={}
+
+def checkStatus(temp_list) :
+    print(temp_list[0], temp_list[1])
+    chunk_ip = str(temp_list[0])
+    chunk_port = int(temp_list[1])
+    chunk_sock = socket()
+    chunk_sock.settimeout(1)
+    flag = 0
+    try :
+        chunk_sock.connect((chunk_ip, chunk_port))
+    except ConnectionRefusedError :
+        flag = 1
+    if flag == 0 :
+        str3 = "H|"
+        message1 = str3 + '\0'*(MESSAGE_SIZE - len(str3))
+        chunk_sock.send(message1.encode())
+        try :
+            message = chunk_sock.recv(1024).decode()
+            if message[0] != 'A' :
+                flag = 1
+        except socket.timeout: # fail after 1 second of no activity
+            flag = 1
+    temp_str = temp_list[0] + ":" + temp_list[1]
+    if flag == 1 :
+        if dict_status_bit[temp_str] == 'A' :
+            dict_status_bit[temp_str] = 'C'
+        elif dict_status_bit[temp_str] == 'C' :
+            dict_status_bit[temp_str] = 'D'
+    elif flag == 0 :
+        dict_status_bit[temp_str] = 'A'
+    chunk_sock.close()
+
+def checkChunkServers() :
+    list_ip_port_input = []
+    with open("chunk_server_info.conf", "r") as fp1:
+        for line in fp1.readlines():
+            list_ip_port_input.append(line.strip().split())
+    while True :
+        for chunk_server_details in list_ip_port_input :
+            checkStatus(chunk_server_details)
+        print(dict_status_bit)
+        time.sleep(10)
 
 def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
     temp_dict_pri={}
@@ -47,10 +90,15 @@ def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
         json.dump(dict_size_info, outfile)
 
     #print(dict_chunk_details)
-def create_status(list_ip_port):
-	for list1 in list_ip_port:
-		temp=list1[0]+":"+list1[1]
-		dict_status_bit[temp]="D"
+def create_status():
+    list_ip_port = []
+    with open("chunk_server_info.conf", "r") as fp1:
+        for line in fp1.readlines():
+            list_ip_port.append(line.strip().split())
+    for list1 in list_ip_port :
+        temp=list1[0]+":"+list1[1]
+        dict_status_bit[temp]="D"
+
 def create_dict_chunkserver(list_ip_port,final_list_chunks):
 	i=0
 	for list1 in list_ip_port:
@@ -65,18 +113,21 @@ def create_dict_chunkserver(list_ip_port,final_list_chunks):
 		i=i+1
 	print(dict_chunkserver_ids)
 #read from meta data of master and prepare the string to be sent to client
+
 def uploadChunks(data_from_client) :
     print(f"upload {data_from_client[1]} {data_from_client[2]}")
-    #list_ip_port = [["127.0.0.1", "33333"], ["127.0.0.1", "33334"]]
     global chunk_id
-    list_ip_port=[]
-
+    list_ip_port_input=[]
+    list_ip_port = []
     with open("chunk_server_info.conf", "r") as fp1:
         for line in fp1.readlines():
-            list_ip_port.append(line.strip().split())
-    print(list_ip_port)
+            list_ip_port_input.append(line.strip().split())
 
-    create_status(list_ip_port)			#init all chunks status to D
+    for list1 in list_ip_port_input :
+        temp_str = list1[0]+":"+list1[1]
+        if dict_status_bit[temp_str] == 'A' :
+            list_ip_port.append(list1)
+
     file_name=data_from_client[1]
     file_size = int(data_from_client[2])
     no_of_chunk_servers = len(list_ip_port)
@@ -107,7 +158,6 @@ def uploadChunks(data_from_client) :
     str3 = f"{str3}|"
     str_to_send = str3 + '\0'*(MESSAGE_SIZE - len(str3))
     #print("String to send ", str_to_send)
-
     return str_to_send
 
 def downloadChunks(data_from_client) :
@@ -121,12 +171,7 @@ def accceptRequest(data_from_client, send_sock) :
         temp_str = uploadChunks(data_from_client)
         str_bytes = str.encode(temp_str)
         send_sock.send(str_bytes)
-        msg = send_sock.recv(MESSAGE_SIZE).decode()
-        parts = msg.split("|")
         send_sock.close()
-        if parts[0] == 'A' and parts[1] == data_from_client[1]:
-            #ACK RECEIVED.
-            pass
     elif data_from_client[0] == 'D' :
         downloadChunks(data_from_client)
 
@@ -150,5 +195,8 @@ def clientReceive() :
     master_sock.close()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" :
+    create_status()
+    thread1 = threading.Thread(target = checkChunkServers)
+    thread1.start()
     clientReceive()
