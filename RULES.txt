@@ -2,22 +2,78 @@ COMMAND DEFINATIONS:
 
 NOTE : ALL THE STRINGS WILL HAVE A LENGTH OF 1024
 
+*********** Master  <->  ChunkServer *********************
 # H - Heartbeat signal from Master to ChunkServer
-# S - State dead/alive etc response from ChunkServer to Master
+# h - State dead/alive etc response from ChunkServer to Master
+# R - Replicate command from master to Chunk_Server 
+#	Format ==> R|chunk_num1,chunk_num2:chunkserver_ip1:chunkserver_port1|
+#                    chunk_num1:chunkserver_ip2:chunkserver_port2
+#       Ex : E|1,5:127.0.0.1:3333|2:127.0.0.1:4444|3,4:127.0.0.1:5555
+# r - From Chunk_server to Master on complete...All replication done
+	Format ==> r|
+
+
+*********** Client  <->  Master *********************
 # U - Client wants to upload(write a file to GFS)
-#       Format ==> U|file_name|file_size
-#       Example ==> U|GFS.txt|890
+#       Format ==> U|file_name|file_size|
+#       Example ==> U|GFS.txt|890|
 # D - Client wants to download(read a file to GFS)
 #       Format ==> D|file_name|
-#       Example ==> D|GFS.txt
-# E - Master to client , as a reply to D. i t sends details of all the chunkservers
+#       Example ==> D|GFS.txt|
+# A - Client to Master
+#	Acknowledegment that Upload has completed
+#       Format ==> A|file_name
+#       Example ==> A|file_name
+# E - Master to client , as a reply to D or U. It sends details of all the chunkservers
 #       Format ==> E|chunk_num1,chunk_num2:chunkserver_ip1:chunkserver_port1|
 #                    chunk_num1:chunkserver_ip2:chunkserver_port2
 #       Ex : E|1,5:127.0.0.1:3333|2:127.0.0.1:4444|3,4:127.0.0.1:5555
+
+
+
+***********  Client <->  ChunkServer *********************
+	Client Download
+# X - Client to chunkServer
+#	Client wants to download
+#	i.e. ChunkServer will GIVE
+#       Format ==> X|chunk_ids
+#       Example ==> X|1,5,9
+# x - ChunkServer to Client
+#	Reply of X 
+#	i.e. ChunkServer will GIVE
+#       Format ==> x|chunk_id      (future use)|(SHA of the chunk to be sent)
+#       Example ==> x|1  send the chunk
+		    x|5	 send the chunk
+		    x|9	 send the chunk
+
+	Client Upload
+# Y - Client to chunkServer
+#	Client wants to UPLOAD
+#	i.e. ChunkServer will RECEIVE
+	Format ==> Y|chunk_id	(future use)|(SHA of the chunk to be sent)
+#       Example ==> Y|1  send the chunk
+		    Y|5	 send the chunk
+		    Y|9	 send the chunk
+# y - ChunkServer to Client
+#	Reply of Y 
+#	i.e. ChunkServer will GIVE
+#       Format ==> y|chunk_id
+#       Example ==> y|1  send the chunk
+		    y|5	 send the chunk
+		    y|9	 send the chunk
+	
+
+
+
+
+
+*********** Adhoc  *********************
 # N - Number encoded in a string.
 #       Ex : N|12345|
 # T - Text/String data enclosed in the string.
 #       Ex : T|Hello There!|
+	
+
 1. Client -> Master
     a) Client wants to upload a file
     b) Client wants to download a file
