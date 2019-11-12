@@ -8,9 +8,12 @@ import json
 
 CHUNK_SIZE = 524288
 MESSAGE_SIZE = 1024
+chunk_id=100
 dict_chunk_details={}
 dict_all_chunk_info={}
 dict_size_info={}
+dict_status_bit={}
+dict_chunkserver_ids={}
 
 def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
     temp_dict_pri={}
@@ -44,11 +47,28 @@ def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
         json.dump(dict_size_info, outfile)
     
     #print(dict_chunk_details)
-
+def create_status(list_ip_port):
+	for list1 in list_ip_port:
+		temp=list1[0]+":"+list1[1]
+		dict_status_bit[temp]="D"
+def create_dict_chunkserver(list_ip_port,final_list_chunks):
+	i=0
+	for list1 in list_ip_port:
+		list3=[]
+		temp=list1[0]+":"+list1[1]
+		if temp in dict_chunkserver_ids:
+			for ids in dict_chunkserver_ids[temp]:
+				list3.append(ids)
+		for j in final_list_chunks[i]:	
+			list3.append(j)
+		dict_chunkserver_ids[temp]=list3
+		i=i+1
+	print(dict_chunkserver_ids)
 #read from meta data of master and prepare the string to be sent to client
 def uploadChunks(data_from_client) :
     print(f"upload {data_from_client[1]} {data_from_client[2]}")
     #list_ip_port = [["127.0.0.1", "33333"], ["127.0.0.1", "33334"]]
+    global chunk_id
     list_ip_port=[]
     list1 = ['127.0.0.1','50001']
     list2 = ['127.0.0.2','50002']
@@ -58,6 +78,7 @@ def uploadChunks(data_from_client) :
     list_ip_port.append(list2)
     list_ip_port.append(list3)
     list_ip_port.append(list4)
+    create_status(list_ip_port)			#init all chunks status to D
     file_name=data_from_client[1]
     file_size = int(data_from_client[2])
     no_of_chunk_servers = len(list_ip_port) 
@@ -70,11 +91,13 @@ def uploadChunks(data_from_client) :
         temp_list1 = list()
         counter = 0
         while i+(counter*no_of_chunk_servers) <= no_of_chunks :
-            temp_list1.append(str(i+(counter*no_of_chunk_servers)))
+            temp_list1.append(str(i+chunk_id+(counter*no_of_chunk_servers)))
             counter = counter + 1
         final_list_chunks.append(temp_list1)
-    
+    chunk_id+=no_of_chunks
+    #print(final_list_chunks)
     formattojson(file_size,file_name,final_list_chunks,list_ip_port)
+    create_dict_chunkserver(list_ip_port,final_list_chunks)
     str3 = 'E'
     str_to_send = ""
     for i in range(0, len(final_list_chunks)) :
