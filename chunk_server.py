@@ -34,7 +34,7 @@ def send_file(csock, file_name):
         i = csock.recv(MESSAGE_SIZE).decode()
         i = s_to_i(i)
         print("Starting receive for chunk", i)
-        f = open(f"{file_name}{i}.chunk", "wb")
+        f = open(f"{i}.chunk", "wb")
         read_size = csock.recv(MESSAGE_SIZE).decode()
         read_size = s_to_i(read_size)
         while read_size > 0:

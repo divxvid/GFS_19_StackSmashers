@@ -17,5 +17,7 @@ for i in range(1, n_servers+1):
 
 for i in range(1, n_servers+1):
     os.system("cp {} ./server{}/".format(chunk_server_file, i))
-    os.system("python3 ./server{}/{} {} &".format(i, chunk_server_file, chunk_servers[i-1]))
+    os.chdir("server{}".format(i))
+    os.system("python3 {} {} &".format(chunk_server_file, chunk_servers[i-1]))
+    os.chdir("..")
     print("Server{} Spawned !".format(i))

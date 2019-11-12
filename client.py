@@ -15,13 +15,14 @@ def i_to_s(x):
     msg = msg + '\0' * (MESSAGE_SIZE - len(msg))
     return msg
 
-def send_single_chunk(f, sock, chunk_number):
+def send_single_chunk(f, sock, chunk_number, offset):
     #sleep(20)
     msg = i_to_s(chunk_number)
     print("Send Chunk number : ", msg)
     msg = str.encode(msg)
     sock.send(msg)
-    f.seek((chunk_number-1)*CHUNK_SIZE)
+    act_cn = chunk_number - offset
+    f.seek((act_cn-1)*CHUNK_SIZE)
     c_data = f.read(CHUNK_SIZE)
     read_size = len(c_data)
     msg = i_to_s(read_size)
@@ -37,7 +38,7 @@ def send_single_chunk(f, sock, chunk_number):
     print(f"{chunk_number} sent")
 
 
-def send_chunks(ip, port, chunks, file_name):
+def send_chunks(ip, port, chunks, file_name, offset):
     ssock = socket(AF_INET, SOCK_STREAM)
     ssock.connect((ip, port))
     f_name = f"T|{file_name}|"
@@ -47,7 +48,7 @@ def send_chunks(ip, port, chunks, file_name):
     ssock.send(str.encode(num_chunks))
     f = open(file_name, "rb")
     for chunk in chunks:
-        send_single_chunk(f, ssock, chunk)
+        send_single_chunk(f, ssock, chunk, offset)
     f.close()
     ssock.close()
 
@@ -73,16 +74,22 @@ def upload_single_file(file_name):
     parsed_details = command_parser.command_parser(details)
     print("Parsed details : ", parsed_details)
     thread_list = list()
+    offset = None
     for chunks, ip, port in parsed_details:
         chunk_nums = list(map(int, chunks.split(",")))
+        if offset is None:
+            offset = chunk_nums[0] - 1 #because i work with 1 based indexing.
         print("chunk nums : ", chunk_nums)
-        thread = threading.Thread(target=send_chunks, args=[ip, port, chunk_nums, file_name])
+        thread = threading.Thread(target=send_chunks, args=[ip, port, chunk_nums, file_name, offset])
         thread.start()
         thread_list.append(thread)
 
     for thread in thread_list:
         thread.join()
 
+    msg = "A|{}|".format(file_name)
+    msg = msg + "\0"*(MESSAGE_SIZE - len(msg))
+    send_sock.send(str.encode(msg))
     send_sock.close()
 
 def upload_file(file_names):
