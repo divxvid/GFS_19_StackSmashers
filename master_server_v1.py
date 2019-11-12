@@ -12,6 +12,7 @@ MESSAGE_SIZE = 1024
 def uploadChunks(data_from_client) :
     print(f"upload {data_from_client[1]} {data_from_client[2]}")
     list_ip_port = [["127.0.0.1", "33333"], ["127.0.0.1", "33334"]]
+    #list_ip_port = [["127.0.0.1", "33333"]]
     '''
     list1 = ['127.0.0.1','50001']
     list2 = ['127.0.0.2','50002']
