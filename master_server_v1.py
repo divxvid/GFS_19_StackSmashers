@@ -42,14 +42,13 @@ def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
         json.dump(dict_all_chunk_info, outfile)
     with open('file_size.json', 'w') as outfile:
         json.dump(dict_size_info, outfile)
-
+    
     #print(dict_chunk_details)
 
 #read from meta data of master and prepare the string to be sent to client
 def uploadChunks(data_from_client) :
     print(f"upload {data_from_client[1]} {data_from_client[2]}")
-    list_ip_port = [["127.0.0.1", "33333"], ["127.0.0.1", "33334"]]
-    '''
+    #list_ip_port = [["127.0.0.1", "33333"], ["127.0.0.1", "33334"]]
     list_ip_port=[]
     list1 = ['127.0.0.1','50001']
     list2 = ['127.0.0.2','50002']
@@ -59,10 +58,9 @@ def uploadChunks(data_from_client) :
     list_ip_port.append(list2)
     list_ip_port.append(list3)
     list_ip_port.append(list4)
-    '''
     file_name=data_from_client[1]
     file_size = int(data_from_client[2])
-    no_of_chunk_servers = len(list_ip_port)
+    no_of_chunk_servers = len(list_ip_port) 
     no_of_chunks = math.ceil(file_size/CHUNK_SIZE)
     print("no of chunks ", no_of_chunks)
     data_info={}
@@ -75,7 +73,7 @@ def uploadChunks(data_from_client) :
             temp_list1.append(str(i+(counter*no_of_chunk_servers)))
             counter = counter + 1
         final_list_chunks.append(temp_list1)
-
+    
     formattojson(file_size,file_name,final_list_chunks,list_ip_port)
     str3 = 'E'
     str_to_send = ""
