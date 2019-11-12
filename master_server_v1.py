@@ -45,7 +45,7 @@ def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
         json.dump(dict_all_chunk_info, outfile)
     with open('file_size.json', 'w') as outfile:
         json.dump(dict_size_info, outfile)
-    
+
     #print(dict_chunk_details)
 def create_status(list_ip_port):
 	for list1 in list_ip_port:
@@ -59,7 +59,7 @@ def create_dict_chunkserver(list_ip_port,final_list_chunks):
 		if temp in dict_chunkserver_ids:
 			for ids in dict_chunkserver_ids[temp]:
 				list3.append(ids)
-		for j in final_list_chunks[i]:	
+		for j in final_list_chunks[i]:
 			list3.append(j)
 		dict_chunkserver_ids[temp]=list3
 		i=i+1
@@ -70,18 +70,16 @@ def uploadChunks(data_from_client) :
     #list_ip_port = [["127.0.0.1", "33333"], ["127.0.0.1", "33334"]]
     global chunk_id
     list_ip_port=[]
-    list1 = ['127.0.0.1','50001']
-    list2 = ['127.0.0.2','50002']
-    list3 = ['127.0.0.3','50003']
-    list4 = ['127.0.0.4','50004']
-    list_ip_port.append(list1)
-    list_ip_port.append(list2)
-    list_ip_port.append(list3)
-    list_ip_port.append(list4)
+
+    with open("chunk_server_info.conf", "r") as fp1:
+        for line in fp1.readlines():
+            list_ip_port.append(line.strip().split())
+    print(list_ip_port)
+
     create_status(list_ip_port)			#init all chunks status to D
     file_name=data_from_client[1]
     file_size = int(data_from_client[2])
-    no_of_chunk_servers = len(list_ip_port) 
+    no_of_chunk_servers = len(list_ip_port)
     no_of_chunks = math.ceil(file_size/CHUNK_SIZE)
     print("no of chunks ", no_of_chunks)
     data_info={}
@@ -123,7 +121,12 @@ def accceptRequest(data_from_client, send_sock) :
         temp_str = uploadChunks(data_from_client)
         str_bytes = str.encode(temp_str)
         send_sock.send(str_bytes)
+        msg = send_sock.recv(MESSAGE_SIZE).decode()
+        parts = msg.split("|")
         send_sock.close()
+        if parts[0] == 'A' and parts[1] == data_from_client[1]:
+            #ACK RECEIVED.
+            pass
     elif data_from_client[0] == 'D' :
         downloadChunks(data_from_client)
 
