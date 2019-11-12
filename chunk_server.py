@@ -25,15 +25,8 @@ def s_to_i(msg):
         return int(parts[1])
     return None
 
-def extract_string(msg):
-    parts = msg.split("|")
-    if parts[0] == "T":
-        return parts[1]
-    return None
 
-def process_request(csock, caddr):
-    file_name = csock.recv(MESSAGE_SIZE).decode()
-    file_name = extract_string(file_name)
+def send_file(csock, file_name):
     n_chunks = csock.recv(MESSAGE_SIZE).decode()
     n_chunks = s_to_i(n_chunks)
     print("n_chunks", n_chunks)
@@ -52,6 +45,16 @@ def process_request(csock, caddr):
         f.close()
         print("Chunk {} written.".format(i))
     csock.close()
+
+def process_request(csock, caddr):
+    msg = csock.recv(MESSAGE_SIZE).decode()
+    parts = msg.split("|")
+    if parts[0] == "T":
+        #File transmission mode.
+        send_file(csock, parts[1])
+    elif parts[0] == "H":
+        msg = "A|"+'\0'*(MESSAGE_SIZE - 2)
+        csock.send(str.encode(msg))
 
 list_sock = socket()
 list_sock.bind((MY_IP, MY_PORT))
