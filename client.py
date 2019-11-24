@@ -10,6 +10,12 @@ with open("master_ip.conf", "r") as f:
     MASTER_IP, MASTER_PORT = f.read().strip().split()
     MASTER_PORT = int(MASTER_PORT)
 
+def s_to_i(msg):
+    parts = msg.split("|")
+    if parts[0] == "N":
+    return int(parts[1])
+    return None
+
 def i_to_s(x):
     msg = f"N|{x}|"
     msg = msg + '\0' * (MESSAGE_SIZE - len(msg))
@@ -35,7 +41,13 @@ def send_single_chunk(f, sock, chunk_number, offset):
         read_size -= len(dts)
         ctr += len(dts)
 
+
+    ack = sock.recv(MESSAGE_SIZE).decode()
+    if ack[0] != '9':
+        print("ERRR ERR ERRRRRRR")
+        return -1
     print(f"{chunk_number} sent")
+    return 0
 
 
 def send_chunks(ip, port, chunks, file_name, offset):
@@ -48,7 +60,9 @@ def send_chunks(ip, port, chunks, file_name, offset):
     ssock.send(str.encode(num_chunks))
     f = open(file_name, "rb")
     for chunk in chunks:
-        send_single_chunk(f, ssock, chunk, offset)
+        v = send_single_chunk(f, ssock, chunk, offset)
+        if v == -1:
+            break
     f.close()
     ssock.close()
 
@@ -90,6 +104,7 @@ def upload_single_file(file_name):
     msg = "A|{}|".format(file_name)
     msg = msg + "\0"*(MESSAGE_SIZE - len(msg))
     send_sock.send(str.encode(msg))
+    print("ACK Sent.")
     send_sock.close()
 
 def upload_file(file_names):
