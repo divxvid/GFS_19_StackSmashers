@@ -9,7 +9,7 @@ import time
 
 CHUNK_SIZE = 524288
 MESSAGE_SIZE = 1024
-chunk_id=100
+chunk_id=1
 dict_chunk_details={}
 dict_all_chunk_info={}
 dict_size_info={}
@@ -58,6 +58,32 @@ def checkChunkServers() :
         print(dict_status_bit)
         time.sleep(10)
 
+def connect_when_replica(ip_port,str_to_send):
+    temp_list=ip_port.split(":")
+    chunk_ip = str(temp_list[0])
+    chunk_port = int(temp_list[1])
+    chunk_sock = socket()
+    chunk_sock.connect((chunk_ip, chunk_port))
+    message1 =str_to_send + '\0'*(MESSAGE_SIZE - len(str_to_send))
+    print(message1)
+    chunk_sock.send(message1.encode())
+
+def send_replica_info_all(file_name,dict_chunk_details):
+    dict_chunkid_ipport={}
+    for key,value in dict_chunk_details[file_name]['P'].items():
+        for i in value:
+            dict_chunkid_ipport[i]=key
+    for key,value in dict_chunk_details[file_name]['S'].items():
+        str_to_send="R|"
+        str_temp=""
+        temp=""
+        #print(value)
+        str_temp=','.join(value)
+        str_to_send=str_to_send+str_temp+":"+dict_chunkid_ipport[value[0]]+"|"
+        #print(key)
+        #print(str_to_send)
+        connect_when_replica(key,str_to_send)
+
 def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
     temp_dict_pri={}
     list_temp=[]
@@ -88,6 +114,7 @@ def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
         json.dump(dict_all_chunk_info, outfile)
     with open('file_size.json', 'w') as outfile:
         json.dump(dict_size_info, outfile)
+    send_replica_info_all(file_name,dict_chunk_details)
 
     #print(dict_chunk_details)
 def create_status():
@@ -100,18 +127,18 @@ def create_status():
         dict_status_bit[temp]="D"
 
 def create_dict_chunkserver(list_ip_port,final_list_chunks):
-	i=0
-	for list1 in list_ip_port:
-		list3=[]
-		temp=list1[0]+":"+list1[1]
-		if temp in dict_chunkserver_ids:
-			for ids in dict_chunkserver_ids[temp]:
-				list3.append(ids)
-		for j in final_list_chunks[i]:
-			list3.append(j)
-		dict_chunkserver_ids[temp]=list3
-		i=i+1
-	print(dict_chunkserver_ids)
+    i=0
+    for list1 in list_ip_port:
+        list3=[]
+        temp=list1[0]+":"+list1[1]
+        if temp in dict_chunkserver_ids:
+            for ids in dict_chunkserver_ids[temp]:
+                list3.append(ids)
+        for j in final_list_chunks[i]:
+            list3.append(j)
+        dict_chunkserver_ids[temp]=list3
+        i=i+1
+    print(dict_chunkserver_ids)
 #read from meta data of master and prepare the string to be sent to client
 
 def uploadChunks(data_from_client) :
@@ -199,4 +226,5 @@ if __name__ == "__main__" :
     create_status()
     thread1 = threading.Thread(target = checkChunkServers)
     thread1.start()
-    clientReceive()
+    clientReceive() 
+    
