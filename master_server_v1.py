@@ -192,14 +192,15 @@ def uploadChunks(data_from_client) :
 def downloadChunks(data_from_client) :
     file_name = data_from_client[1]
     list_temp = []
-    print(dict_all_chunk_info[file_name]['P'])
+    print(dict_chunk_details[file_name]['P'])
     final_str = ""
-    for key,value in dict_all_chunk_info[file_name]['P'].items():
+    for key,value in dict_chunk_details[file_name]['P'].items():
         chunk_nums = ','.join(value)
         temp_str = ':'.join([chunk_nums, key])
         final_str += temp_str + '|'
     final_str1 = 'E|' + final_str
     str_to_send = final_str1 + '\0'*(MESSAGE_SIZE - len(final_str1))
+    print(str_to_send)
     return str_to_send
 
 #accept request from client and call function accordingly and send reply to client
@@ -244,3 +245,4 @@ if __name__ == "__main__" :
     thread1 = threading.Thread(target = checkChunkServers)
     thread1.start()
     clientReceive()
+
