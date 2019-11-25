@@ -75,16 +75,16 @@ def send_replica_info_all(file_name,dict_chunk_details):
         for i in value:
             dict_chunkid_ipport[i]=key
     for key,value in dict_chunk_details[file_name]['S'].items():
-        if(len(value)>1):
-            str_to_send="R|"
-            str_temp=""
-            temp=""
-            #print(value)
-            str_temp=','.join(value)
-            str_to_send=str_to_send+str_temp+":"+dict_chunkid_ipport[value[0]]+"|"
-            #print(key)
-            #print(str_to_send)
-            connect_when_replica(key,str_to_send)
+    	if(len(value)>0):
+	        str_to_send="R|"
+	        str_temp=""
+	        temp=""
+	        #print(value)
+	        str_temp=','.join(value)
+	        str_to_send=str_to_send+str_temp+":"+dict_chunkid_ipport[value[0]]+"|"
+	        #print(key)
+	        #print(str_to_send)
+	        connect_when_replica(key,str_to_send)
 
 def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
     temp_dict_pri={}
@@ -170,7 +170,9 @@ def uploadChunks(data_from_client) :
         while i+(counter*no_of_chunk_servers) <= no_of_chunks :
             temp_list1.append(str(i+chunk_id+(counter*no_of_chunk_servers)))
             counter = counter + 1
+            print(temp_list1)
         final_list_chunks.append(temp_list1)
+    print(final_list_chunks)
     chunk_id+=no_of_chunks
     #print(final_list_chunks)
     formattojson(file_size,file_name,final_list_chunks,list_ip_port)
