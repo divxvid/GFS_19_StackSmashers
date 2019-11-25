@@ -67,6 +67,7 @@ def connect_when_replica(ip_port,str_to_send):
     message1 =str_to_send + '\0'*(MESSAGE_SIZE - len(str_to_send))
     print(message1)
     chunk_sock.send(message1.encode())
+    chunk_sock.close()
 
 def send_replica_info_all(file_name,dict_chunk_details):
     dict_chunkid_ipport={}
@@ -74,15 +75,16 @@ def send_replica_info_all(file_name,dict_chunk_details):
         for i in value:
             dict_chunkid_ipport[i]=key
     for key,value in dict_chunk_details[file_name]['S'].items():
-        str_to_send="R|"
-        str_temp=""
-        temp=""
-        #print(value)
-        str_temp=','.join(value)
-        str_to_send=str_to_send+str_temp+":"+dict_chunkid_ipport[value[0]]+"|"
-        #print(key)
-        #print(str_to_send)
-        connect_when_replica(key,str_to_send)
+        if(len(value)>1):
+            str_to_send="R|"
+            str_temp=""
+            temp=""
+            #print(value)
+            str_temp=','.join(value)
+            str_to_send=str_to_send+str_temp+":"+dict_chunkid_ipport[value[0]]+"|"
+            #print(key)
+            #print(str_to_send)
+            connect_when_replica(key,str_to_send)
 
 def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
     temp_dict_pri={}
@@ -142,7 +144,6 @@ def create_dict_chunkserver(list_ip_port,final_list_chunks):
 #read from meta data of master and prepare the string to be sent to client
 
 def uploadChunks(data_from_client) :
-    print(f"upload {data_from_client[1]} {data_from_client[2]}")
     global chunk_id
     list_ip_port_input=[]
     list_ip_port = []
@@ -184,11 +185,20 @@ def uploadChunks(data_from_client) :
         str3 = '|'.join([str3, str2])
     str3 = f"{str3}|"
     str_to_send = str3 + '\0'*(MESSAGE_SIZE - len(str3))
-    #print("String to send ", str_to_send)
     return str_to_send
 
 def downloadChunks(data_from_client) :
-    print(f"download {data_from_client[1]} {data_from_client[2]}")
+    file_name = data_from_client[1]
+    list_temp = []
+    print(dict_all_chunk_info[file_name]['P'])
+    final_str = ""
+    for key,value in dict_all_chunk_info[file_name]['P'].items():
+        chunk_nums = ','.join(value)
+        temp_str = ':'.join([chunk_nums, key])
+        final_str += temp_str + '|'
+    final_str1 = 'E|' + final_str
+    str_to_send = final_str1 + '\0'*(MESSAGE_SIZE - len(final_str1))
+    return str_to_send
 
 #accept request from client and call function accordingly and send reply to client
 def accceptRequest(data_from_client, send_sock) :
@@ -200,7 +210,12 @@ def accceptRequest(data_from_client, send_sock) :
         send_sock.send(str_bytes)
         send_sock.close()
     elif data_from_client[0] == 'D' :
-        downloadChunks(data_from_client)
+        str_bytes = ""
+        temp_str = ""
+        temp_str = downloadChunks(data_from_client)
+        str_bytes = str.encode(temp_str)
+        send_sock.send(str_bytes)
+        send_sock.close()
 
 def clientReceive() :
     fp1 = open("master_ip.conf", "r")
@@ -226,5 +241,4 @@ if __name__ == "__main__" :
     create_status()
     thread1 = threading.Thread(target = checkChunkServers)
     thread1.start()
-    clientReceive() 
-    
+    clientReceive()
