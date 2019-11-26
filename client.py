@@ -21,6 +21,56 @@ def i_to_s(x):
     msg = msg + '\0' * (MESSAGE_SIZE - len(msg))
     return msg
 
+def merge(file_name,chunk_num):
+    chunk_num = list(map(int, chunk_num))
+    chunk_num.sort()
+    chunk_files = [str(x)+".chunk" for x in chunk_num]
+    with open(file_name, 'wb') as outfile:
+        for fname in chunk_files:
+            print('copying',fname)
+            with open(fname,"rb") as infile:
+                outfile.write(infile.read())
+            if os.path.exists(fname):
+                os.remove(fname)
+
+def connect_to_chunk_Server(details):	#	['1,5', '127.0.0.1', 3333]
+    csock = socket(AF_INET, SOCK_STREAM)
+    csock.connect((details[1], details[2]))
+    command = "X|{}|".format(details[0])
+    command = command + '\0'*(MESSAGE_SIZE - len(command))
+    cmd_bytes = str.encode(command)
+    print(f"Sending {len(cmd_bytes)} of data.")
+    csock.send(cmd_bytes)
+    c_no = details[0].split(",")
+    for c in c_no:
+    	with open(f"{c}.chunk", "wb") as f :
+            read_size = csock.recv(MESSAGE_SIZE).decode()
+            read_size = s_to_i(read_size)
+            while read_size > 0:
+                dr = csock.recv(MESSAGE_SIZE)
+                f.write(dr)
+                read_size -= len(dr)
+            csock.send(str.encode("A"*1024))
+        	# recv_file(csock,chunk_ids)
+
+def chunk_server_details(parsed_details,file_name):
+    all_chunk_ids = []
+    thread_list = list()
+    for i in parsed_details :
+        if i[0] == '':
+            continue
+        chunk_list = i[0].split(',')
+        for j in chunk_list :
+            all_chunk_ids.append(j)
+        # connect_to_chunk_Server(i)
+        thread = threading.Thread(target=connect_to_chunk_Server, args=[i])
+        thread.start()
+        thread_list.append(thread)
+
+    for thread in thread_list:
+        thread.join()
+    merge(file_name,all_chunk_ids)
+
 def send_single_chunk(f, sock, chunk_number, offset):
     #sleep(20)
     msg = i_to_s(chunk_number)
@@ -121,7 +171,8 @@ def download_single_file(file_name) :
     recv_sock.send(str_bytes)
     details = recv_sock.recv(MESSAGE_SIZE).decode()
     print("I got ", details)
-
+    parsed_details = command_parser.command_parser(details)
+    chunk_server_details(parsed_details,file_name)
     recv_sock.close()
 
 def download_file(file_names) :
@@ -140,4 +191,3 @@ while True:
         upload_file(inp[1:])
     elif command == "download" :
         download_file(inp[1:])
-

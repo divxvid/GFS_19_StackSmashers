@@ -67,6 +67,7 @@ def connect_when_replica(ip_port,str_to_send):
     message1 =str_to_send + '\0'*(MESSAGE_SIZE - len(str_to_send))
     print(message1)
     chunk_sock.send(message1.encode())
+    chunk_sock.close()
 
 def send_replica_info_all(file_name,dict_chunk_details):
     dict_chunkid_ipport={}
@@ -82,7 +83,7 @@ def send_replica_info_all(file_name,dict_chunk_details):
 	        str_temp=','.join(value)
 	        str_to_send=str_to_send+str_temp+":"+dict_chunkid_ipport[value[0]]+"|"
 	        #print(key)
-	        #print(str_to_send )
+	        #print(str_to_send)
 	        connect_when_replica(key,str_to_send)
 
 def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
@@ -115,7 +116,7 @@ def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
         json.dump(dict_all_chunk_info, outfile)
     with open('file_size.json', 'w') as outfile:
         json.dump(dict_size_info, outfile)
-
+    # send_replica_info_all(file_name,dict_chunk_details)
 
     #print(dict_chunk_details)
 def create_status():
@@ -187,11 +188,21 @@ def uploadChunks(data_from_client) :
         str3 = '|'.join([str3, str2])
     str3 = f"{str3}|"
     str_to_send = str3 + '\0'*(MESSAGE_SIZE - len(str3))
-    #print("String to send ", str_to_send)
     return str_to_send
 
 def downloadChunks(data_from_client) :
-    print(f"download {data_from_client[1]} {data_from_client[2]}")
+    file_name = data_from_client[1]
+    list_temp = []
+    print(dict_chunk_details[file_name]['P'])
+    final_str = ""
+    for key,value in dict_chunk_details[file_name]['P'].items():
+        chunk_nums = ','.join(value)
+        temp_str = ':'.join([chunk_nums, key])
+        final_str += temp_str + '|'
+    final_str1 = 'E|' + final_str
+    str_to_send = final_str1 + '\0'*(MESSAGE_SIZE - len(final_str1))
+    print(str_to_send)
+    return str_to_send
 
 #accept request from client and call function accordingly and send reply to client
 def accceptRequest(data_from_client, send_sock) :
@@ -207,9 +218,13 @@ def accceptRequest(data_from_client, send_sock) :
                 print("Erron in recv ACK from client")
         send_sock.close()
         send_replica_info_all(data_from_client[1],dict_chunk_details)
-
     elif data_from_client[0] == 'D' :
-        downloadChunks(data_from_client)
+        str_bytes = ""
+        temp_str = ""
+        temp_str = downloadChunks(data_from_client)
+        str_bytes = str.encode(temp_str)
+        send_sock.send(str_bytes)
+        send_sock.close()
 
 def clientReceive() :
     fp1 = open("master_ip.conf", "r")

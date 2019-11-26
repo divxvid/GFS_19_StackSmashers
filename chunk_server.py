@@ -58,7 +58,31 @@ def replicate_chunks(msg):
     chunks, ip, port = msg.split(":")
     chunks = list(map(int, chunks.split(",")))
     port = int(port)
-    print("Gotta replicate : ", chunks, ip, port)
+    chunk_sock = socket()
+    chunk_sock.connect((ip, port))
+    msg = "t|{}|".format(len(chunks))
+    msg = msg + '\0'*(MESSAGE_SIZE-len(msg))
+    chunk_sock.send(str.encode(msg))
+    for chunk_no in chunks:
+        msg = i_to_s(chunk_no)
+        chunk_sock.send(str.encode(msg)) #sends the chunk number which it wants.
+        with open("{}.chunk".format(chunk_no), "wb") as f:
+            msg = chunk_sock.recv(MESSAGE_SIZE).decode()
+            file_size = s_to_i(msg)
+            size_to_recv = file_size
+            print("SIZE TO ReCV : ", size_to_recv)
+            data_received = 0
+            while size_to_recv > 0:
+                d = chunk_sock.recv(MESSAGE_SIZE)
+                data_received += len(d)
+                f.write(d)
+                size_to_recv -= len(d)
+            print("Total Data Received: ", data_received)
+            msg = "A"*MESSAGE_SIZE
+            chunk_sock.send(str.encode(msg))
+            print("REPLICATED CHUNK {}".format(chunk_no))
+
+    chunk_sock.close()
 
 def send_chunks(csock ,chunks):
     c_no = chunks.split(",")
@@ -80,6 +104,26 @@ def send_chunks(csock ,chunks):
         if msg[0] != 'A':
             print("ERR ACK.")
 
+def send_replication_chunks(csock, n_chunks):
+    n_chunks = int(n_chunks)
+    for _ in range(n_chunks):
+        msg = csock.recv(MESSAGE_SIZE).decode()
+        chunk_number = s_to_i(msg)
+        with open("{}.chunk".format(chunk_number), "rb") as f:
+            file_size = os.path.getsize("{}.chunk".format(chunk_number))
+            msg = i_to_s(file_size)
+            csock.send(str.encode(msg))
+            size_to_send = file_size
+            data = f.read()
+            sent = 0
+            while size_to_send > 0:
+                d = data[sent:sent+MESSAGE_SIZE]
+                sent += len(d)
+                csock.send(d)
+                size_to_send -= len(d)
+            msg = csock.recv(MESSAGE_SIZE).decode()
+            if msg[0] != 'A':
+                print("ACK ERROR WHILE REPLICATION.")
 
 def process_request(csock, caddr):
     msg = csock.recv(MESSAGE_SIZE).decode()
@@ -96,6 +140,9 @@ def process_request(csock, caddr):
     elif parts[0] == "X":
         send_chunks(csock, parts[1])
         csock.close()
+    elif parts[0] == "t":
+        #chunk server to chunk server comms for replication.
+        send_replication_chunks(csock, parts[1])
 
 list_sock = socket()
 list_sock.bind((MY_IP, MY_PORT))
