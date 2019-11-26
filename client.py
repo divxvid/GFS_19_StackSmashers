@@ -111,6 +111,23 @@ def upload_file(file_names):
     for file_name in file_names:
         upload_single_file(file_name)
 
+def download_single_file(file_name) :
+    recv_sock = socket()
+    recv_sock.connect((MASTER_IP, MASTER_PORT))
+    str_to_send = "|".join(["D", file_name, ""])
+    str_to_send = str_to_send + '\0'*(MESSAGE_SIZE - len(str_to_send))
+    str_bytes = str.encode(str_to_send)
+    print(f"Sending {len(str_bytes)} of data.")
+    recv_sock.send(str_bytes)
+    details = recv_sock.recv(MESSAGE_SIZE).decode()
+    print("I got ", details)
+
+    recv_sock.close()
+
+def download_file(file_names) :
+    for file_name in file_names :
+        download_single_file(file_name)
+
 while True:
     inp = input("> ")
     if inp == "":
@@ -121,3 +138,6 @@ while True:
         break
     elif command == "upload":
         upload_file(inp[1:])
+    elif command == "download" :
+        download_file(inp[1:])
+
