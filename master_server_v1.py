@@ -115,7 +115,7 @@ def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
         json.dump(dict_all_chunk_info, outfile)
     with open('file_size.json', 'w') as outfile:
         json.dump(dict_size_info, outfile)
-    
+
 
     #print(dict_chunk_details)
 def create_status():
@@ -201,12 +201,12 @@ def accceptRequest(data_from_client, send_sock) :
         temp_str = uploadChunks(data_from_client)
         str_bytes = str.encode(temp_str)
         send_sock.send(str_bytes)
-        #blocking call for ack 
+        #blocking call for ack
         msg=send_sock.recv(1024).decode()
         if(msg[0]!='A'):
-        	print("Erron in recv ACK from client")
-		send_sock.close()
-		send_replica_info_all(data_from_client[1],dict_chunk_details)
+                print("Erron in recv ACK from client")
+                send_sock.close()
+                send_replica_info_all(data_from_client[1],dict_chunk_details)
 
     elif data_from_client[0] == 'D' :
         downloadChunks(data_from_client)
@@ -235,5 +235,5 @@ if __name__ == "__main__" :
     create_status()
     thread1 = threading.Thread(target = checkChunkServers)
     thread1.start()
-    clientReceive() 
-    
+    clientReceive()
+

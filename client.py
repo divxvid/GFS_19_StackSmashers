@@ -13,7 +13,7 @@ with open("master_ip.conf", "r") as f:
 def s_to_i(msg):
     parts = msg.split("|")
     if parts[0] == "N":
-    return int(parts[1])
+        return int(parts[1])
     return None
 
 def i_to_s(x):
