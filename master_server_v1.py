@@ -205,8 +205,8 @@ def accceptRequest(data_from_client, send_sock) :
         msg=send_sock.recv(1024).decode()
         if(msg[0]!='A'):
                 print("Erron in recv ACK from client")
-                send_sock.close()
-                send_replica_info_all(data_from_client[1],dict_chunk_details)
+        send_sock.close()
+        send_replica_info_all(data_from_client[1],dict_chunk_details)
 
     elif data_from_client[0] == 'D' :
         downloadChunks(data_from_client)
@@ -236,4 +236,3 @@ if __name__ == "__main__" :
     thread1 = threading.Thread(target = checkChunkServers)
     thread1.start()
     clientReceive()
-
