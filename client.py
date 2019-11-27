@@ -2,9 +2,11 @@ from socket import socket, AF_INET, SOCK_STREAM
 import command_parser
 import os
 import threading
+import hashlib
 
 MESSAGE_SIZE = 1024
 CHUNK_SIZE= 512 * 1024 #512K
+BUFF_SIZE_HASH = 65536
 MASTER_IP, MASTER_PORT = None, None
 with open("master_ip.conf", "r") as f:
     MASTER_IP, MASTER_PORT = f.read().strip().split()
@@ -21,7 +23,17 @@ def i_to_s(x):
     msg = msg + '\0' * (MESSAGE_SIZE - len(msg))
     return msg
 
-def merge(file_name,chunk_num):
+def hashFunction(file_name) :
+    sha1 = hashlib.sha1()
+    with open(file_name, 'rb') as fp1:
+        while True:
+            data = fp1.read(BUFF_SIZE_HASH)
+            if not data :
+                break
+            sha1.update(data)
+    return sha1.hexdigest()
+
+def merge(file_name,chunk_num,file_hash_value):
     chunk_num = list(map(int, chunk_num))
     chunk_num.sort()
     chunk_files = [str(x)+".chunk" for x in chunk_num]
@@ -32,6 +44,9 @@ def merge(file_name,chunk_num):
                 outfile.write(infile.read())
             if os.path.exists(fname):
                 os.remove(fname)
+    merge_file_hash = hashFunction(file_name)
+    print("HASH value of downloaded file : ", merge_file_hash)
+    print("HASH value of original file : ", file_hash_value)
 
 def connect_to_chunk_Server(details):	#	['1,5', '127.0.0.1', 3333]
     csock = socket(AF_INET, SOCK_STREAM)
@@ -53,7 +68,7 @@ def connect_to_chunk_Server(details):	#	['1,5', '127.0.0.1', 3333]
             csock.send(str.encode("A"*1024))
         	# recv_file(csock,chunk_ids)
 
-def chunk_server_details(parsed_details,file_name):
+def chunk_server_details(parsed_details,file_name,file_hash_value):
     all_chunk_ids = []
     thread_list = list()
     for i in parsed_details :
@@ -69,7 +84,7 @@ def chunk_server_details(parsed_details,file_name):
 
     for thread in thread_list:
         thread.join()
-    merge(file_name,all_chunk_ids)
+    merge(file_name,all_chunk_ids,file_hash_value)
 
 def send_single_chunk(f, sock, chunk_number, offset):
     #sleep(20)
@@ -121,9 +136,10 @@ def upload_single_file(file_name):
         print(f"{file_name} file not found.")
         return
     file_size = os.path.getsize(file_name)
+    file_hash_value = hashFunction(file_name)
     send_sock = socket()
     send_sock.connect((MASTER_IP, MASTER_PORT))
-    str_to_send = "|".join(["U", file_name, str(file_size), ""])
+    str_to_send = "|".join(["U", file_name, str(file_size), file_hash_value, ""])
     str_to_send = str_to_send + '\0'*(MESSAGE_SIZE - len(str_to_send))
     #encode the string into bytes
     str_bytes = str.encode(str_to_send)
@@ -171,13 +187,38 @@ def download_single_file(file_name) :
     recv_sock.send(str_bytes)
     details = recv_sock.recv(MESSAGE_SIZE).decode()
     print("I got ", details)
-    parsed_details = command_parser.command_parser(details)
-    chunk_server_details(parsed_details,file_name)
+    if details[0] == 'S' :
+        print(f'{file_name} currently not available, will abort in 20 seconds if not available ...')
+        details = recv_sock.recv(MESSAGE_SIZE).decode()
+    if details[0] == 'F' :
+        print(f'{file_name} is blocked')
+    else :
+        msg = "A|{}|".format(file_name)
+        msg = msg + "\0"*(MESSAGE_SIZE - len(msg))
+        recv_sock.send(str.encode(msg))
+        print("ACK Sent.")
+        msg_from_server = recv_sock.recv(MESSAGE_SIZE).decode()
+        print("from server ", msg_from_server)
+        temp_list = msg_from_server.split("|")
+        file_hash_value = ""
+        if temp_list[0] == 'Z' :
+            file_hash_value = temp_list[1]
+        print(file_hash_value)
+        parsed_details = command_parser.command_parser(details)
+        chunk_server_details(parsed_details,file_name,file_hash_value)
     recv_sock.close()
 
 def download_file(file_names) :
     for file_name in file_names :
         download_single_file(file_name)
+
+def leaseFile(file_name) :
+    lease_sock = socket()
+    lease_sock.connect((MASTER_IP, MASTER_PORT))
+    str_to_send = "|".join(["L", file_name[0], ""])
+    str_to_send = str_to_send + '\0'*(MESSAGE_SIZE - len(str_to_send))
+    str_bytes = str.encode(str_to_send)
+    lease_sock.send(str_bytes)
 
 while True:
     inp = input("> ")
@@ -191,3 +232,5 @@ while True:
         upload_file(inp[1:])
     elif command == "download" :
         download_file(inp[1:])
+    elif command == "lease" :
+        leaseFile(inp[1:])
