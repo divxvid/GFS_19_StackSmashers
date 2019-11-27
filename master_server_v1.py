@@ -17,7 +17,7 @@ dict_status_bit={}
 dict_chunkserver_ids={}
 
 def checkStatus(temp_list) :
-    print(temp_list[0], temp_list[1])
+    # print(temp_list[0], temp_list[1])
     chunk_ip = str(temp_list[0])
     chunk_port = int(temp_list[1])
     chunk_sock = socket()
@@ -39,13 +39,80 @@ def checkStatus(temp_list) :
             flag = 1
     temp_str = temp_list[0] + ":" + temp_list[1]
     if flag == 1 :
+        # print(temp_str,'is down!!!!!!!!!!')
         if dict_status_bit[temp_str] == 'A' :
             dict_status_bit[temp_str] = 'C'
+            print(temp_str,'is down.')
+            node_down(temp_str)
         elif dict_status_bit[temp_str] == 'C' :
             dict_status_bit[temp_str] = 'D'
     elif flag == 0 :
         dict_status_bit[temp_str] = 'A'
     chunk_sock.close()
+
+def node_down(ip_port):
+    primary_list=[]
+    secondary_list = []
+    ip_ports = find_cs(ip_port)
+    for i in ip_ports:
+        print(i)
+    # print(ip_ports)
+    print("before loop : ",dict_chunk_details)
+    sel_key = ip_ports[1]
+    third = ip_ports[2]
+    print("Sel_key ", sel_key)
+    print("Dead : ", ip_port)
+    print("third : ", third)
+    print("Keys : ", dict_chunk_details.keys())
+    for f_name in dict_chunk_details:
+        primary_list = primary_list + dict_chunk_details[f_name]['P'][ip_port]
+        print("CHECK ID : ", id(dict_chunk_details[f_name]["P"][sel_key]), id(dict_chunk_details[f_name]["S"][third]))
+        dict_chunk_details[f_name]["P"][sel_key].extend(dict_chunk_details[f_name]["S"][sel_key])
+        print("PART1 ", dict_chunk_details)
+        secondary_list = secondary_list + dict_chunk_details[f_name]['S'][ip_port]
+        dict_chunk_details[f_name]["S"][sel_key].clear()
+        print("PART2 ", dict_chunk_details)
+        dict_chunk_details[f_name]["S"][sel_key].extend(dict_chunk_details[f_name]["S"][ip_port])
+        print("PART3 ", dict_chunk_details)
+        dict_chunk_details[f_name]["S"][third].extend(dict_chunk_details[f_name]["P"][ip_port])
+        print("PART4 ", dict_chunk_details)
+    print("After loop : ",dict_chunk_details)
+
+
+    primary_str = 'R|' + ','.join(primary_list) + ':'+ ip_ports[1] + '|'
+    secondary_str = 'R|' + ','.join(secondary_list) + ':'+ ip_ports[0] + '|'
+    connect_when_replica(ip_ports[2],primary_str)
+    connect_when_replica(ip_ports[1],secondary_str)
+    # ip_port1 = distribute_primary(ip_port)
+
+    # ip_port2 = distribute_secondary(ip_port)
+
+def find_cs(ip_port):
+    chunk_server_list = []
+    prev_active = ''
+    first_active = ''
+    second_active = ''
+    for key in dict_status_bit.keys():
+        chunk_server_list.append(key)
+    print('inside find_cs :', chunk_server_list)
+    i = len(chunk_server_list) - 1
+    while(chunk_server_list[i] != ip_port):
+        i = (i-1) %len(chunk_server_list)
+    while(dict_status_bit[chunk_server_list[i]] != 'A'):
+        i = (i-1) %len(chunk_server_list)
+    prev_active = chunk_server_list[i]
+    i=0
+    while(chunk_server_list[i] != ip_port):
+        i = (i+1) %len(chunk_server_list)
+    while(dict_status_bit[chunk_server_list[i]] != 'A'):
+        i = (i+1) %len(chunk_server_list)
+    first_active = chunk_server_list[i]
+    i = (i+1) %len(chunk_server_list)
+    while(dict_status_bit[chunk_server_list[i]] != 'A'):
+        i = (i+1) %len(chunk_server_list)
+    second_active = chunk_server_list[i]
+    l = [prev_active, first_active, second_active]
+    return l
 
 def checkChunkServers() :
     list_ip_port_input = []
@@ -86,7 +153,7 @@ def send_replica_info_all(file_name,dict_chunk_details):
 	        #print(str_to_send)
 	        connect_when_replica(key,str_to_send)
 
-def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
+def format_to_json(file_size,file_name,final_list_chunks,list_ip_port):
     temp_dict_pri={}
     list_temp=[]
     for list1 in final_list_chunks:
@@ -95,27 +162,34 @@ def formattojson(file_size,file_name,final_list_chunks,list_ip_port):
     dict_all_chunk_info[file_name]=list_temp
     dict_size_info[file_name]=file_size
     i=0
+    from copy import deepcopy
     for list1 in final_list_chunks:
         temp=list_ip_port[i][0]+":"+list_ip_port[i][1]
-        temp_dict_pri[temp]=list1
+        temp_dict_pri[temp]=deepcopy(list1)
         i=i+1
     i=1
     temp_dict_sec={}
     for list1 in final_list_chunks:
         temp=list_ip_port[i][0]+":"+list_ip_port[i][1]
-        temp_dict_sec[temp]=list1
+        temp_dict_sec[temp]=deepcopy(list1)
         i=(i+1)%len(list_ip_port)
 
     temp_dict={}
     temp_dict['P']=temp_dict_pri
     temp_dict['S']=temp_dict_sec
     dict_chunk_details[file_name]=temp_dict
-    with open('file_table.json', 'w') as outfile:
-        json.dump(dict_chunk_details, outfile)
-    with open('file_chunk_info.json', 'w') as outfile:
-        json.dump(dict_all_chunk_info, outfile)
-    with open('file_size.json', 'w') as outfile:
-        json.dump(dict_size_info, outfile)
+    # with open('file_table.json', 'w') as outfile:
+    #     json.dump(dict_chunk_details, outfile)
+    # with open('file_chunk_info.json', 'w') as outfile:
+    #     json.dump(dict_all_chunk_info, outfile)
+    # with open('file_size.json', 'w') as outfile:
+    #     json.dump(dict_size_info, outfile)
+    with open('file_table.json', 'w', encoding='utf-8') as outfile:
+        json.dump(dict_chunk_details, outfile, ensure_ascii=False, indent=4)
+    with open('file_chunk_info.json', 'w', encoding='utf-8') as outfile:
+        json.dump(dict_all_chunk_info, outfile, ensure_ascii=False, indent=4)
+    with open('file_size.json', 'w', encoding='utf-8') as outfile:
+        json.dump(dict_size_info, outfile, ensure_ascii=False, indent=4)
     # send_replica_info_all(file_name,dict_chunk_details)
 
     #print(dict_chunk_details)
@@ -176,7 +250,7 @@ def uploadChunks(data_from_client) :
     print(final_list_chunks)
     chunk_id+=no_of_chunks
     #print(final_list_chunks)
-    formattojson(file_size,file_name,final_list_chunks,list_ip_port)
+    format_to_json(file_size,file_name,final_list_chunks,list_ip_port)
     create_dict_chunkserver(list_ip_port,final_list_chunks)
     str3 = 'E'
     str_to_send = ""
@@ -195,13 +269,17 @@ def downloadChunks(data_from_client) :
     list_temp = []
     print(dict_chunk_details[file_name]['P'])
     final_str = ""
+    print("dict_chunk_details inside download :",dict_chunk_details)
+    print("dict_status_bit inside download :",dict_status_bit)
     for key,value in dict_chunk_details[file_name]['P'].items():
+        if dict_status_bit[key] != 'A':
+            continue
         chunk_nums = ','.join(value)
         temp_str = ':'.join([chunk_nums, key])
         final_str += temp_str + '|'
     final_str1 = 'E|' + final_str
     str_to_send = final_str1 + '\0'*(MESSAGE_SIZE - len(final_str1))
-    print(str_to_send)
+    print("inside downloadChunks : ",str_to_send)
     return str_to_send
 
 #accept request from client and call function accordingly and send reply to client
