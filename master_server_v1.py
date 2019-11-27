@@ -17,6 +17,7 @@ dict_status_bit={}
 dict_chunkserver_ids={}
 dict_file_status={} #to store the status of file for lease feature
 dict_file_hash={} #to store hash value of the files
+dict_filename_update={} #to store mapping of file name as list of multiple files for update feature
 
 def checkStatus(temp_list) :
     # print(temp_list[0], temp_list[1])
@@ -144,16 +145,16 @@ def send_replica_info_all(file_name,dict_chunk_details):
         for i in value:
             dict_chunkid_ipport[i]=key
     for key,value in dict_chunk_details[file_name]['S'].items():
-    	if(len(value)>0):
-	        str_to_send="R|"
-	        str_temp=""
-	        temp=""
-	        #print(value)
-	        str_temp=','.join(value)
-	        str_to_send=str_to_send+str_temp+":"+dict_chunkid_ipport[value[0]]+"|"
-	        #print(key)
-	        #print(str_to_send)
-	        connect_when_replica(key,str_to_send)
+        if(len(value)>0):
+            str_to_send="R|"
+            str_temp=""
+            temp=""
+            #print(value)
+            str_temp=','.join(value)
+            str_to_send=str_to_send+str_temp+":"+dict_chunkid_ipport[value[0]]+"|"
+            #print(key)
+            #print(str_to_send)
+            connect_when_replica(key,str_to_send)
 
 def format_to_json(file_size,file_name,final_list_chunks,list_ip_port):
     temp_dict_pri={}
@@ -253,6 +254,9 @@ def uploadChunks(data_from_client) :
     print(final_list_chunks)
     chunk_id+=no_of_chunks
     #print(final_list_chunks)
+    #added ds for update ##############
+    dict_filename_update[file_name]=[file_name]
+    ########################################3
     dict_file_status[file_name]="A" #to store the status of file for lease feature
     dict_file_hash[file_name] = file_hash_value #to store hash value of a file
     format_to_json(file_size,file_name,final_list_chunks,list_ip_port)
@@ -269,7 +273,7 @@ def uploadChunks(data_from_client) :
     str_to_send = str3 + '\0'*(MESSAGE_SIZE - len(str3))
     return str_to_send
 
-def downloadChunks(data_from_client,state = 'X') :
+def downloadChunks(data_from_client,send_sock,state = 'X') :
     file_name = data_from_client[1]
     if(dict_file_status[file_name]=="A"):
         list_temp = []
@@ -277,16 +281,38 @@ def downloadChunks(data_from_client,state = 'X') :
         final_str = ""
         print("dict_chunk_details inside download :",dict_chunk_details)
         print("dict_status_bit inside download :",dict_status_bit)
-        for key,value in dict_chunk_details[file_name]['P'].items():
-            if dict_status_bit[key] != 'A':
-                continue
-            chunk_nums = ','.join(value)
-            temp_str = ':'.join([chunk_nums, key])
-            final_str += temp_str + '|'
-        final_str1 = 'E|' + final_str
-        str_to_send = final_str1 + '\0'*(MESSAGE_SIZE - len(final_str1))
-        print("inside downloadChunks : ",str_to_send)
-        return str_to_send
+        #to send the number of files coressponding to each file name
+        str_name="f|"
+        for fname in dict_filename_update[file_name]:
+            str_name=str_name+fname+"|"
+        str_to_send = str_name + '\0'*(MESSAGE_SIZE - len(str_name))
+        send_sock.send(str.encode(str_to_send))
+        #####################################################
+        for file1 in dict_filename_update[file_name]:
+            for key,value in dict_chunk_details[file1]['P'].items():
+                if dict_status_bit[key] != 'A':
+                    continue
+                chunk_nums = ','.join(value)
+                temp_str = ':'.join([chunk_nums, key])
+                final_str += temp_str + '|'
+            final_str1 = 'E|' + final_str
+            str_to_send = final_str1 + '\0'*(MESSAGE_SIZE - len(final_str1))
+            print("inside downloadChunks : ",str_to_send)
+            print("SENDING ..... : ", str_to_send)
+            str_bytes = str.encode(str_to_send)
+            send_sock.send(str_bytes)
+            msg = send_sock.recv(1024).decode()
+            if(msg[0]!='A'):
+                print("Erron in recv ACK from client")
+            else:
+                str_hash = 'Z|' + dict_file_hash[data_from_client[1]] + '|'
+                str_to_send = str_hash + '\0'*(MESSAGE_SIZE - len(str_hash))
+                print("2 ",str_to_send)
+                str_bytes = str.encode(str_to_send)
+                send_sock.send(str_bytes)
+
+        send_sock.close()
+        return "lol"
     else:
         if state == 'S' :
             final_str1 = 'F|101|'
@@ -305,6 +331,9 @@ def leaseFile(data_from_client):
     #again change status bit for that file
     dict_file_status[file_name]="A"
 
+def updateFile(old_filename,new_filename):
+    dict_filename_update[old_filename].append(new_filename)
+
 #accept request from client and call function accordingly and send reply to client
 def accceptRequest(data_from_client, send_sock) :
     if data_from_client[0] == 'U' :
@@ -322,31 +351,26 @@ def accceptRequest(data_from_client, send_sock) :
     elif data_from_client[0] == 'D' :
         str_bytes = ""
         temp_str = ""
-        temp_str = downloadChunks(data_from_client)
+        temp_str = downloadChunks(data_from_client,send_sock)
         if temp_str[0] == 'S' :
             str_bytes = str.encode(temp_str)
             send_sock.send(str_bytes)
             time.sleep(20)
-            temp_str = downloadChunks(data_from_client, 'S')
+            temp_str = downloadChunks(data_from_client,send_sock,'S')
         if temp_str[0] == 'F' :
             str_bytes = str.encode(temp_str)
             send_sock.send(str_bytes)
             send_sock.close()
-        elif temp_str[0] == 'E' :
-            str_bytes = str.encode(temp_str)
-            send_sock.send(str_bytes)
-            msg = send_sock.recv(1024).decode()
-            if(msg[0]!='A'):
-                print("Erron in recv ACK from client")
-            else:
-                str_hash = 'Z|' + dict_file_hash[data_from_client[1]] + '|'
-                str_to_send = str_hash + '\0'*(MESSAGE_SIZE - len(str_hash))
-                print("2 ",str_to_send)
-                str_bytes = str.encode(str_to_send)
-                send_sock.send(str_bytes)
-            send_sock.close()
+        #elif temp_str[0] == 'E' :
+
     elif data_from_client[0] == 'L' :
         leaseFile(data_from_client)
+    #adding code in case of update feature
+    elif data_from_client[0] == 'u':
+        old_filename=data_from_client[1]
+        new_filename=data_from_client[2]
+        updateFile(old_filename,new_filename)
+
 
 def clientReceive() :
     fp1 = open("master_ip.conf", "r")
