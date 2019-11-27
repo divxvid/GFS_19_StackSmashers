@@ -44,9 +44,9 @@ def merge(file_name,chunk_num,file_hash_value):
                 outfile.write(infile.read())
             if os.path.exists(fname):
                 os.remove(fname)
-    merge_file_hash = hashFunction(file_name)
-    print("HASH value of downloaded file : ", merge_file_hash)
-    print("HASH value of original file : ", file_hash_value)
+    #merge_file_hash = hashFunction(file_name)
+    #print("HASH value of downloaded file : ", merge_file_hash)
+    #print("HASH value of original file : ", file_hash_value)
 
 def connect_to_chunk_Server(details):	#	['1,5', '127.0.0.1', 3333]
     csock = socket(AF_INET, SOCK_STREAM)
@@ -177,36 +177,82 @@ def upload_file(file_names):
     for file_name in file_names:
         upload_single_file(file_name)
 
-def download_single_file(file_name) :
+
+def parse_file_names(names, recv_sock):
+    vals = names.split("|")
+    if vals[0] == 'f':
+        f_names = [x.strip() for x in vals[1:-1]]
+        return f_names
+
+    ret_val = None
+    if vals[0] == 'S' :
+        print(f'File currently not available, will abort in 20 seconds if not available ...')
+        ret_val = recv_sock.recv(MESSAGE_SIZE).decode()
+    if ret_val[0] == 'F' :
+        print(f'File is blocked')
+        return -1
+    #msg = recv_sock.recv(MESSAGE_SIZE).decode()
+    #print("DEBUGGGG : ", msg)
+    vals = ret_val.split("|")
+    if vals[0] != 'f':
+        print("errrrr")
+        return -1
+    f_names = [x.strip() for x in vals[1:-1]]
+    return f_names
+
+def merge_all_files(f_names):
+    out_name = "temp_file"
+    with open(out_name, "w") as f:
+        for f_name in f_names:
+            with open(f_name, "r") as ff:
+                f.write(ff.read())
+
+    for f_name in f_names:
+        os.remove(f_name)
+    os.rename(out_name, f_names[0])
+
+def download_single_file(f_name) :
     recv_sock = socket()
     recv_sock.connect((MASTER_IP, MASTER_PORT))
-    str_to_send = "|".join(["D", file_name, ""])
+    str_to_send = "|".join(["D", f_name, ""])
     str_to_send = str_to_send + '\0'*(MESSAGE_SIZE - len(str_to_send))
     str_bytes = str.encode(str_to_send)
     print(f"Sending {len(str_bytes)} of data.")
     recv_sock.send(str_bytes)
-    details = recv_sock.recv(MESSAGE_SIZE).decode()
-    print("I got ", details)
-    if details[0] == 'S' :
-        print(f'{file_name} currently not available, will abort in 20 seconds if not available ...')
+    ####################################################
+    f_names = recv_sock.recv(MESSAGE_SIZE).decode()
+    f_names = parse_file_names(f_names, recv_sock)
+    if f_names == -1:
+        return
+    for file_name in f_names:
         details = recv_sock.recv(MESSAGE_SIZE).decode()
-    if details[0] == 'F' :
-        print(f'{file_name} is blocked')
-    else :
-        msg = "A|{}|".format(file_name)
-        msg = msg + "\0"*(MESSAGE_SIZE - len(msg))
-        recv_sock.send(str.encode(msg))
-        print("ACK Sent.")
-        msg_from_server = recv_sock.recv(MESSAGE_SIZE).decode()
-        print("from server ", msg_from_server)
-        temp_list = msg_from_server.split("|")
-        file_hash_value = ""
-        if temp_list[0] == 'Z' :
-            file_hash_value = temp_list[1]
-        print(file_hash_value)
-        parsed_details = command_parser.command_parser(details)
-        chunk_server_details(parsed_details,file_name,file_hash_value)
+        print("I got ", details)
+        if details[0] == 'S' :
+            print(f'{file_name} currently not available, will abort in 20 seconds if not available ...')
+            details = recv_sock.recv(MESSAGE_SIZE).decode()
+        if details[0] == 'F' :
+            print(f'{file_name} is blocked')
+        else :
+            msg = "A|{}|".format(file_name)
+            msg = msg + "\0"*(MESSAGE_SIZE - len(msg))
+            recv_sock.send(str.encode(msg))
+            print("ACK Sent.")
+            msg_from_server = recv_sock.recv(MESSAGE_SIZE).decode()
+            print("from server ", msg_from_server)
+            temp_list = msg_from_server.split("|")
+            file_hash_value = ""
+            if temp_list[0] == 'Z' :
+                file_hash_value = temp_list[1]
+            print(file_hash_value)
+            parsed_details = command_parser.command_parser(details)
+            chunk_server_details(parsed_details,file_name,file_hash_value)
     recv_sock.close()
+    if len(f_names) == 1:
+        return
+    out_name = f_names[0]
+    for fname in f_names[:-1]:
+        os.remove(fname)
+    os.rename(f_names[-1], out_name)
 
 def download_file(file_names) :
     for file_name in file_names :
@@ -219,6 +265,15 @@ def leaseFile(file_name) :
     str_to_send = str_to_send + '\0'*(MESSAGE_SIZE - len(str_to_send))
     str_bytes = str.encode(str_to_send)
     lease_sock.send(str_bytes)
+
+def update_file(old_file, new_file):
+    msg = f"u|{old_file}|{new_file}|"
+    msg = msg + '\0'*(MESSAGE_SIZE-len(msg))
+    master_sock = socket()
+    master_sock.connect((MASTER_IP, MASTER_PORT))
+    master_sock.send(str.encode(msg))
+    master_sock.close()
+    upload_single_file(new_file)
 
 while True:
     inp = input("> ")
@@ -234,3 +289,5 @@ while True:
         download_file(inp[1:])
     elif command == "lease" :
         leaseFile(inp[1:])
+    elif command == "update":
+        update_file(inp[1], inp[2])

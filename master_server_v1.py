@@ -63,23 +63,13 @@ def node_down(ip_port):
     print("before loop : ",dict_chunk_details)
     sel_key = ip_ports[1]
     third = ip_ports[2]
-    print("Sel_key ", sel_key)
-    print("Dead : ", ip_port)
-    print("third : ", third)
-    print("Keys : ", dict_chunk_details.keys())
     for f_name in dict_chunk_details:
         primary_list = primary_list + dict_chunk_details[f_name]['P'][ip_port]
-        print("CHECK ID : ", id(dict_chunk_details[f_name]["P"][sel_key]), id(dict_chunk_details[f_name]["S"][third]))
         dict_chunk_details[f_name]["P"][sel_key].extend(dict_chunk_details[f_name]["S"][sel_key])
-        print("PART1 ", dict_chunk_details)
         secondary_list = secondary_list + dict_chunk_details[f_name]['S'][ip_port]
         dict_chunk_details[f_name]["S"][sel_key].clear()
-        print("PART2 ", dict_chunk_details)
         dict_chunk_details[f_name]["S"][sel_key].extend(dict_chunk_details[f_name]["S"][ip_port])
-        print("PART3 ", dict_chunk_details)
         dict_chunk_details[f_name]["S"][third].extend(dict_chunk_details[f_name]["P"][ip_port])
-        print("PART4 ", dict_chunk_details)
-    print("After loop : ",dict_chunk_details)
 
 
     primary_str = 'R|' + ','.join(primary_list) + ':'+ ip_ports[1] + '|'
