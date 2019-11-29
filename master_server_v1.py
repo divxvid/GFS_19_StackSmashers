@@ -35,7 +35,7 @@ def checkStatus(temp_list) :
         message1 = str3 + '\0'*(MESSAGE_SIZE - len(str3))
         chunk_sock.send(message1.encode())
         try :
-            message = chunk_sock.recv(1024).decode()
+            message = chunk_sock.recv(MESSAGE_SIZE).decode()
             if message[0] != 'A' :
                 flag = 1
         except socket.timeout: # fail after 1 second of no activity
@@ -291,7 +291,7 @@ def downloadChunks(data_from_client,send_sock,state = 'X') :
             print("SENDING ..... : ", str_to_send)
             str_bytes = str.encode(str_to_send)
             send_sock.send(str_bytes)
-            msg = send_sock.recv(1024).decode()
+            msg = send_sock.recv(MESSAGE_SIZE).decode()
             if(msg[0]!='A'):
                 print("Erron in recv ACK from client")
             else:
@@ -333,7 +333,7 @@ def accceptRequest(data_from_client, send_sock) :
         str_bytes = str.encode(temp_str)
         send_sock.send(str_bytes)
         #blocking call for ack
-        msg=send_sock.recv(1024).decode()
+        msg=send_sock.recv(MESSAGE_SIZE).decode()
         if(msg[0]!='A'):
                 print("Erron in recv ACK from client")
         send_sock.close()
@@ -373,7 +373,7 @@ def clientReceive() :
     master_sock.listen(10)
     while True :
         client_sock, client_addr = master_sock.accept()
-        packet = client_sock.recv(1024)
+        packet = client_sock.recv(MESSAGE_SIZE)
         packet_from_client = packet.decode()
         data_from_client = packet_from_client.split("|")
         thread1 = threading.Thread(target = accceptRequest, args = (data_from_client, client_sock, ))
